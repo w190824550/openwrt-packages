@@ -7,6 +7,9 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
+      - name: 获取源码仓库 (之前漏了这最关键的一步！)
+        uses: actions/checkout@v4
+
       - name: 准备环境
         run: |
           sudo apt update
@@ -16,7 +19,7 @@ jobs:
         run: |
           wget https://downloads.immortalwrt.org/releases/24.10.5/targets/x86/64/immortalwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
           tar -xf *.tar.zst
-          rm *.tar.zst  # <--- 加了这一行“过河拆桥”，先删压缩包
+          rm *.tar.zst
           mv immortalwrt-sdk-* sdk
 
       - name: 注入代码并安装依赖
@@ -24,13 +27,14 @@ jobs:
           cd sdk
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          ln -s $GITHUB_WORKSPACE/luci-app-adguardhome package/luci-app-adguardhome
+          # 物理复制，把面板和核心内核一起塞进去！
+          cp -r $GITHUB_WORKSPACE/adguardhome package/
+          cp -r $GITHUB_WORKSPACE/luci-app-adguardhome package/
 
       - name: 开始闪电编译
         run: |
           cd sdk
           make defconfig
-          echo "CONFIG_PACKAGE_luci-app-adguardhome=y" >> .config
           make package/luci-app-adguardhome/compile V=s
 
       - name: 打包上传成品
