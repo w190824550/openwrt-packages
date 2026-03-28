@@ -1,0 +1,42 @@
+name: Build AdGuardHome IPK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 准备环境
+        run: |
+          sudo apt update
+          # 必须安装 zstd，因为 24.10.5 的 SDK 是高压缩率的 .zst 格式
+          sudo apt install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget zstd
+          
+      - name: 下载 24.10.5 专属 SDK
+        run: |
+          # 精准匹配你的 x86_64 24.10.5 固件
+          wget https://downloads.immortalwrt.org/releases/24.10.5/targets/x86/64/immortalwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          tar -xf immortalwrt-sdk-*
+          mv immortalwrt-sdk-* sdk
+
+      - name: 注入代码并安装依赖
+        run: |
+          cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          # 把当前仓库的 adguardhome 源码塞进编译机
+          ln -s $GITHUB_WORKSPACE/luci-app-adguardhome package/luci-app-adguardhome
+
+      - name: 开始闪电编译
+        run: |
+          cd sdk
+          make defconfig
+          echo "CONFIG_PACKAGE_luci-app-adguardhome=y" >> .config
+          make package/luci-app-adguardhome/compile V=s
+
+      - name: 打包上传成品
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdGuardHome-IPK-x86-24.10.5
+          path: sdk/bin/packages/x86_64/base/*.ipk
