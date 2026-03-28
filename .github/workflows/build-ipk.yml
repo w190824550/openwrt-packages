@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: 获取源码仓库 (之前漏了这最关键的一步！)
+      - name: 获取源码仓库
         uses: actions/checkout@v4
 
       - name: 准备环境
@@ -22,23 +22,31 @@ jobs:
           rm *.tar.zst
           mv immortalwrt-sdk-* sdk
 
-      - name: 注入代码并安装依赖
+      - name: 注入代码并执行“x86_64 更新补丁”
         run: |
+          # 1. 自动修复 x86_64 架构下无法更新核心的 Bug
+          sed -i 's/\*)/x86_64) Arch="amd64" ;; \*)/' $GITHUB_WORKSPACE/luci-app-adguardhome/root/usr/share/AdGuardHome/update_core.sh
+          
+          # 2. 注入插件源码
           cd sdk
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # 物理复制，把面板和核心内核一起塞进去！
           cp -r $GITHUB_WORKSPACE/adguardhome package/
           cp -r $GITHUB_WORKSPACE/luci-app-adguardhome package/
 
-      - name: 开始闪电编译
+      - name: 开始编译
         run: |
           cd sdk
+          # 只针对目标插件生成配置
           make defconfig
           make package/luci-app-adguardhome/compile V=s
 
-      - name: 打包上传成品
+      - name: 精准打包成品 (不再打包 194 个杂质)
         uses: actions/upload-artifact@v4
         with:
-          name: AdGuardHome-IPK-x86-24.10.5
-          path: sdk/bin/packages/x86_64/base/*.ipk
+          name: AdGuardHome-Clean-IPK
+          # 关键优化：递归搜索 bin 目录下所有包含 adguardhome 关键字的 .ipk 文件
+          path: |
+            sdk/bin/**/adguardhome*.ipk
+            sdk/bin/**/luci-app-adguardhome*.ipk
+            sdk/bin/**/luci-i18n-adguardhome-zh-cn*.ipk
