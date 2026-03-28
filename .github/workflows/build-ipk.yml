@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # <--- 这里改成了最稳的 22.04 系统
+    runs-on: ubuntu-22.04
     steps:
       - name: 准备环境
         run: |
@@ -15,7 +15,8 @@ jobs:
       - name: 下载 24.10.5 专属 SDK
         run: |
           wget https://downloads.immortalwrt.org/releases/24.10.5/targets/x86/64/immortalwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-          tar -xf immortalwrt-sdk-*
+          tar -xf *.tar.zst
+          rm *.tar.zst  # <--- 加了这一行“过河拆桥”，先删压缩包
           mv immortalwrt-sdk-* sdk
 
       - name: 注入代码并安装依赖
